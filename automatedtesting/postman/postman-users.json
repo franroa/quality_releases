@@ -1,0 +1,213 @@
+{
+	"info": {
+		"_postman_id": "60aae256-f889-41a0-a7b4-93066bd9a848",
+		"name": "Udacity - User Collection",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Create User",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Successful response\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Data Validation\", function () {",
+							"    pm.expect(pm.response.text()).to.include(\"User Name\");",
+							"    pm.expect(pm.response.text()).to.include(\"User Password\");",
+							"});",
+							"",
+							"var json = pm.response.json();",
+							"pm.environment.set(\"ID\", json.ID);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"ID\": 1,\n  \"UserName\": \"User Name\",\n  \"Password\": \"User Password\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://frantest-appservice.azurewebsites.net/api/Users",
+					"protocol": "http",
+					"host": [
+						"frantest-appservice",
+						"azurewebsites",
+						"net"
+					],
+					"path": [
+						"api",
+						"Users"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get All Users",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Successful response\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"",
+							"var template = `",
+							"    <table bgcolor=\"#FFFFFF\">",
+							"        <tr>",
+							"            <th>Name</th>",
+							"            <th>Email</th>",
+							"        </tr>",
+							"",
+							"        {{#each response}}",
+							"            <tr>",
+							"                <td>{{UserName}}</td>",
+							"                <td>{{Password}}</td>",
+							"            </tr>",
+							"        {{/each}}",
+							"    </table>",
+							"`;",
+							"",
+							"pm.visualizer.set(template, {",
+							"    // Pass the response body parsed as JSON as `data`",
+							"    response: pm.response.json()",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://frantest-appservice.azurewebsites.net/api/Users",
+					"protocol": "http",
+					"host": [
+						"frantest-appservice",
+						"azurewebsites",
+						"net"
+					],
+					"path": [
+						"api",
+						"Users"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Update User",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Successful response\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"",
+							"pm.test(\"Data Validation\", function () {",
+							"    pm.expect(pm.response.text()).to.include(\"UserName\");",
+							"    pm.expect(pm.response.text()).to.include(\"updated password\");",
+							"});",
+							"",
+							"var json = pm.response.json();",
+							"pm.environment.set(\"ID\", json.ID);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"Password\": \"updated password\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://frantest-appservice.azurewebsites.net/api/Users/1",
+					"protocol": "http",
+					"host": [
+						"frantest-appservice",
+						"azurewebsites",
+						"net"
+					],
+					"path": [
+						"api",
+						"Users",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete User",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Successful response\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://frantest-appservice.azurewebsites.net/api/Users/1",
+					"protocol": "http",
+					"host": [
+						"frantest-appservice",
+						"azurewebsites",
+						"net"
+					],
+					"path": [
+						"api",
+						"Users",
+						"1"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

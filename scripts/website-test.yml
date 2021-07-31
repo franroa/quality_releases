@@ -1,0 +1,28 @@
+modules:
+  jmeter:
+    path: /jmeter
+    version: 5.2.1
+    download-link: https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-{version}.zip
+    plugins:
+    - jmeter.backendlistener.azure
+
+execution:
+- scenario:
+    script: website-test.jmx
+  concurrency: 5
+  iterations: 10
+  hold-for: 10s
+  ramp-up: 2s
+
+# Generate HTML report, see https://stackoverflow.com/questions/51955998
+services:
+- module: shellexec
+  post-process:
+  - >
+    cd ${TAURUS_ARTIFACTS_DIR}
+    && rm -rf report
+    && cp kpi.jtl kpi.csv
+    && /jmeter/bin/jmeter -Jjmeter.save.saveservice.assertion_results_failure_message=false -g kpi.csv -o report -q jmeter-bzt.properties
+reporting:
+- module: junit-xml
+  filename: /tmp/artifacts/TEST-jmeter.xml

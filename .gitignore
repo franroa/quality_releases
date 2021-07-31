@@ -1,0 +1,6 @@
+/access_key
+/terraform/.terraform.lock.hcl
+/terraform/.terraform
+.terraform
+/automatedtesting/jmeter/endurance/report/
+/automatedtesting/jmeter/stress/report/

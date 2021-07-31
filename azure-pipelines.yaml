@@ -1,0 +1,167 @@
+name: Azure Pipelines
+
+resources:
+  repositories:
+    - repository: self
+      type: git
+      name: quality/quality
+      ref: master
+
+variables:
+  python.version: '3.7.6'
+  terraformVersion: 0.12.3
+  azureSubscriptionServiceConnectionName: 'franstate2-connection'
+  tfStateResourceGroupName: 'frantstate'
+  tfStateAzureStorageAccountSku: 'Standard_LRS'
+  tfStateAzureStorageAccountName: 'frantstate8216'
+  tfStateContainerName: 'tstate'
+  tfStateKeyName: "terraform.tfstate"
+  host: frantest-appservice.azurewebsites.net
+stages:
+  - stage: Build
+    jobs:
+      - job: Build
+        pool:
+          name: Hosted Ubuntu 1604
+        steps:
+          # THIS TASK IS USED FOR THE CASE THAT YOU DONT HAVE A CUSTOM VM RUNNING PIPELINES (those are defined in the environment)
+          # - task: InstallSSHKey@0
+          #   inputs:
+          #     knownHostsEntry: 'ssh.dev.azure.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7Hr1oTWqNqOlzGJOfGJ4NakVyIzf1rXYd4d7wo6jBlkLvCA4odBlL0mDUyZ0/QUfTTqeu+tm22gOsv+VrVTMk6vwRU75gY/y9ut5Mb3bR5BV58dKXyq9A9UeB5Cakehn5Zgm6x1mKoVyf+FFn26iYqXJRgzIZZcZ5V6hrE0Qg39kZm4az48o0AUbf6Sp4SLdvnuMa2sVNwHBboS7EJkm57XQPVU3/QpyNLHbWDdzwtrlS+ez30S3AdYhLKEOxAG8weOnyrtLJAUen9mTkol8oII1edf7mWWbWVf0nBmly21+nZcmCTISQBtdcyPaEno7fFQMDD26/s0lfKob4Kw8H'
+          #     sshPublicKey: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDQ0+VenSGCtayIe7ixkMQFHrEFfin3guA3EfwXS46+mR3j4+j5rAomgi7MzcLMUIEu12Dtfg2SpvH9VfgfMZjEmASqdtPUhTmGZqEJv9HNrbI6UHrHZsncygDYfbMpqXVGO5asX2RKFTRODJKGLVr+d6PFuCTjN6D5BQ4hQKecumLQSQMXkXlMGhG6RPGolEUyK6caUvHRryVISm6R/1yES1BXDk4++91MM+gEuPMYycAOjt5s1oqxTniBAIVJLONQ8906fJNtcykgDQI7sYCFXz20IDXm0kTwFt0on6eYIw1Q+bdtv+7lO11wWDl0FwWJvWRDfAOe2KOr4uoUsCLIZyFRprLWU21rQVVQGQN0MR005M2m6y/7DjjJe1GuSBe5GBU2EngMoPnK68ieA46n+9Z1AlXCeHaFvwKi29YAQov6WCz/mB5QsEZgTBEQm6ql/BdFVXPMQDSC/JSkO+oQBQq0F68dXMPYeD32TshN9ILRyIAFxIV3dlyO2ynwgt0= franroa@ubuntu'
+          #     sshKeySecureFile: 'gitlab_course'
+          - task: DownloadSecureFile@1
+            name: sshKey
+            displayName: 'Download Public SSH Key'
+            inputs:
+              secureFile: 'gitlab_course.pub'
+
+          - script: |
+              echo Installing $(sshKey.secureFilePath) to the trusted CA directory...
+              mkdir ~/.ssh
+              mv $(sshKey.secureFilePath) ~/.ssh/gitlab_course.pub
+            displayName: Copy SSH key
+          - task: charleszipp.azure-pipelines-tasks-terraform.azure-pipelines-tasks-terraform-cli.TerraformCLI@0
+            displayName: 'terraform init'
+            inputs:
+              command: init
+              workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+              backendType: azurerm
+              backendServiceArm: $(azureSubscriptionServiceConnectionName)
+              backendAzureRmResourceGroupLocation: "eastus"
+              backendAzureRmResourceGroupName: $(tfStateResourceGroupName)
+              backendAzureRmStorageAccountName: $(tfStateAzureStorageAccountName)
+              backendAzureRmContainerName: $(tfStateContainerName)
+              backendAzureRmKey: $(tfStateKeyName)
+          - task: TerraformCLI@0
+            displayName: 'terraform apply'
+            inputs:
+              workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+              command: apply
+              environmentServiceName: $(azureSubscriptionServiceConnectionName)
+          - task: ArchiveFiles@2
+            displayName: 'Archive FakeRestAPI'
+            inputs:
+              rootFolderOrFile: 'automatedtesting/jmeter/fakerestapi'
+              includeRootFolder: false
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId)-fakerestapi.zip'
+          - publish: $(Build.ArtifactStagingDirectory)/$(Build.BuildId)-fakerestapi.zip
+            displayName: 'Upload Package'
+            artifact: drop-fakerestapi
+  - stage: WebApp
+    jobs:
+      - deployment: FakeRestAPI
+        pool:
+          vmImage: 'Ubuntu-16.04'
+        environment:
+          name:   'TEST'
+          # resourceType: VirtualMachine
+          # tags: app
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureWebApp@1
+                  displayName: 'Deploy Azure Web App'
+                  inputs:
+                    azureSubscription: "franstate2-connection"
+                    appName: 'frantest-AppService'
+                    appType: webApp
+                    package: $(Pipeline.Workspace)/drop-fakerestapi/$(Build.BuildId)-fakerestapi.zip
+  - stage: Tests
+    jobs:
+      - deployment: VMDeploy
+        displayName: Deployment
+        environment:
+          name:   'TEST'
+        #   resourceType: VirtualMachine
+        #   tags: app
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - task: Bash@3
+                  displayName: Endurance Tests
+                  inputs:
+                    targetType: filePath
+                    filePath: 'automatedtesting/jmeter/test.sh'
+                    arguments: '$PWD endurance.jmx $(host)'
+                    workingDirectory: automatedtesting/jmeter/endurance
+                    failOnStderr: false
+                - task: PublishPipelineArtifact@1
+                  displayName: Publish Endurance Test Report
+                  inputs:
+                    targetPath: automatedtesting/jmeter/endurance/report
+                    artifact: endurance-jmeter
+                - task: Bash@3
+                  displayName: Stress Tests
+                  inputs:
+                    targetType: filePath
+                    filePath: 'automatedtesting/jmeter/test.sh'
+                    arguments: '$PWD stress.jmx $(host)'
+                    workingDirectory: automatedtesting/jmeter/stress
+                    failOnStderr: false
+                - task: PublishPipelineArtifact@1
+                  displayName: Publish Stress Test Report
+                  inputs:
+                    targetPath: automatedtesting/jmeter/stress/report
+                    artifact: stress-jmeter
+                - task: Bash@3
+                  displayName: Execute Selenium tests
+                  inputs:
+                    targetType: 'inline'
+                    script: |
+                      #! /bin/bash
+
+                      sudo rm -rf chromedriver*
+                      wget https://chromedriver.storage.googleapis.com/91.0.4472.101/chromedriver_linux64.zip
+                      unzip chromedriver*.zip
+                      sudo mv chromedriver -f /usr/bin
+                      sudo apt update -y
+                      sudo apt-get upgrade -y
+                      sudo apt-get install python3-pip -y
+                      sudo apt-get install unzip -y
+                      sudo apt install google-chrome-stable
+                      sudo apt-get install -y chromium-browser
+                      pip3 install --upgrade pip3
+                      pip3 install selenium
+                      python3 automatedtesting/selenium/login.py
+                - task: NodeTool@0
+                  displayName: Install Node
+                  inputs:
+                    versionSpec: '12.x'
+                - script:  |
+                    npm install -g newman
+                    npm i -g xunit-viewer
+                    newman run ./automatedtesting/postman/postman-users.json --insecure -x -r junit,cli --reporter-junit-export postman.xml
+                    xunit-viewer --results=postman.xml --output=test_results.html
+                    newman run ./automatedtesting/postman/postman-activities.json --insecure -x -r junit,cli --reporter-junit-export postman.xml
+                    xunit-viewer --results=postman.xml --output=test_results.html
+                  displayName: Execute Postman tests
+                - task: PublishTestResults@2
+                  displayName: Publish Test Results
+                  inputs:
+                    testResultsFiles: 'postman.xml'
+
