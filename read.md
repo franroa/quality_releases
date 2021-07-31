@@ -29,4 +29,4 @@ collects after having registered the file
 
 
 #NOTE
-take a look to the terraform.tfvars and the values set to "xxxxxx"
+take a look to the terraform.tfvars and the values set to "xxxxxx". IT WOULD BETTER TO USE ENV VARS INSTEAD TERRAFORM VARSK
